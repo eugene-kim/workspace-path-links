@@ -6,6 +6,55 @@ function isTerminator(char: string): boolean {
   return /\s/.test(char) || char === '"' || char === "'" || char === '`' || char === '<' || char === '>';
 }
 
+function findTokenEnd(text: string, start: number): number {
+  let cursor = start;
+  let inJsonPathMode = false;
+  let quote: '"' | "'" | undefined;
+  let bracketDepth = 0;
+  let parenDepth = 0;
+
+  while (cursor < text.length) {
+    if (!inJsonPathMode && text.startsWith('#jsonpath=', cursor)) {
+      inJsonPathMode = true;
+      cursor += '#jsonpath='.length;
+      continue;
+    }
+
+    const char = text[cursor];
+    const previousChar = cursor > 0 ? text[cursor - 1] : '';
+
+    if (!inJsonPathMode) {
+      if (isTerminator(char)) {
+        break;
+      }
+      cursor += 1;
+      continue;
+    }
+
+    if (quote) {
+      if (char === quote && previousChar !== '\\') {
+        quote = undefined;
+      }
+    } else if (char === '"' || char === "'") {
+      quote = char;
+    } else if (char === '[') {
+      bracketDepth += 1;
+    } else if (char === ']') {
+      bracketDepth = Math.max(0, bracketDepth - 1);
+    } else if (char === '(') {
+      parenDepth += 1;
+    } else if (char === ')') {
+      parenDepth = Math.max(0, parenDepth - 1);
+    } else if (isTerminator(char) && bracketDepth === 0 && parenDepth === 0) {
+      break;
+    }
+
+    cursor += 1;
+  }
+
+  return cursor;
+}
+
 function stripTrailingPunctuation(candidate: string): string {
   const openParenCount = (candidate.match(/\(/g) ?? []).length;
   let closeParenCount = (candidate.match(/\)/g) ?? []).length;
@@ -137,10 +186,7 @@ export function parseWorkspacePathReferences(text: string, prefixes: string[]): 
       continue;
     }
 
-    let cursor = index + prefix.length;
-    while (cursor < text.length && !isTerminator(text[cursor])) {
-      cursor += 1;
-    }
+    const cursor = findTokenEnd(text, index + prefix.length);
 
     const rawToken = text.slice(index, cursor);
     const strippedToken = stripTrailingPunctuation(rawToken);

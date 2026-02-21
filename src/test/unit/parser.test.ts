@@ -49,6 +49,38 @@ describe('parseWorkspacePathReferences', () => {
     });
   });
 
+  it('parses raw JSONPath references containing quoted values', () => {
+    const refs = parseWorkspacePathReferences(
+      '// @/artifacts/output/TCPC/2024-09/FINAL.json#jsonpath=$[?(@.rowId=="table-15-row-14")]',
+      ['@/']
+    );
+
+    expect(refs).toHaveLength(1);
+    expect(refs[0]).toMatchObject({
+      path: 'artifacts/output/TCPC/2024-09/FINAL.json',
+      selector: {
+        kind: 'jsonPath',
+        expression: '$[?(@.rowId=="table-15-row-14")]'
+      }
+    });
+  });
+
+  it('parses raw JSONPath references with spaces inside quoted values', () => {
+    const refs = parseWorkspacePathReferences(
+      '// @/data/final.json#jsonpath=$..rows[?(@.borrower=="Magenta Buyer, LLC (McAfee)")]',
+      ['@/']
+    );
+
+    expect(refs).toHaveLength(1);
+    expect(refs[0]).toMatchObject({
+      path: 'data/final.json',
+      selector: {
+        kind: 'jsonPath',
+        expression: '$..rows[?(@.borrower=="Magenta Buyer, LLC (McAfee)")]'
+      }
+    });
+  });
+
   it('rejects invalid line suffixes', () => {
     const text = ['// @/file.ts:abc', '// @/file.ts:0', '// @/file.ts:-1'].join('\n');
     const refs = parseWorkspacePathReferences(text, ['@/']);
