@@ -43,6 +43,23 @@
             "@/"
           ],
           "description": "Path prefixes that should be treated as workspace-relative links."
+        },
+        "workspacePathLinks.jsonSelector.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable JSON Pointer and JSONPath navigation for workspace links."
+        },
+        "workspacePathLinks.jsonSelector.maxQuickPickItems": {
+          "type": "number",
+          "default": 50,
+          "minimum": 1,
+          "description": "Maximum number of JSONPath matches to show in the selection picker."
+        },
+        "workspacePathLinks.jsonSelector.maxFileSizeBytes": {
+          "type": "number",
+          "default": 5242880,
+          "minimum": 1024,
+          "description": "Maximum JSON file size allowed for selector-based navigation."
         }
       }
     }
@@ -56,6 +73,8 @@
     "package": "vsce package"
   },
   "dependencies": {
+    "jsonc-parser": "^3.3.1",
+    "jsonpath-plus": "^10.3.0",
     "typescript": "^5.9.2"
   },
   "devDependencies": {

@@ -9,7 +9,7 @@ describe('parseWorkspacePathReferences', () => {
     expect(refs[0]).toMatchObject({
       prefix: '@/',
       path: 'src/index.ts',
-      line: undefined,
+      selector: { kind: 'none' },
       raw: '@/src/index.ts'
     });
   });
@@ -20,8 +20,32 @@ describe('parseWorkspacePathReferences', () => {
     expect(refs).toHaveLength(1);
     expect(refs[0]).toMatchObject({
       path: 'src/index.ts',
-      line: 57,
+      selector: { kind: 'line', line: 57 },
       raw: '@/src/index.ts:57'
+    });
+  });
+
+  it('parses JSON Pointer fragment references', () => {
+    const refs = parseWorkspacePathReferences('// @/data/final.json#/table/29/row/14', ['@/']);
+
+    expect(refs).toHaveLength(1);
+    expect(refs[0]).toMatchObject({
+      path: 'data/final.json',
+      selector: { kind: 'jsonPointer', pointer: '/table/29/row/14' }
+    });
+  });
+
+  it('parses JSONPath fragment references', () => {
+    const encoded = encodeURIComponent('$..rows[?(@.borrower=="Magenta Buyer, LLC (McAfee)")]');
+    const refs = parseWorkspacePathReferences(`// @/data/final.json#jsonpath=${encoded}`, ['@/']);
+
+    expect(refs).toHaveLength(1);
+    expect(refs[0]).toMatchObject({
+      path: 'data/final.json',
+      selector: {
+        kind: 'jsonPath',
+        expression: '$..rows[?(@.borrower=="Magenta Buyer, LLC (McAfee)")]'
+      }
     });
   });
 
@@ -38,7 +62,7 @@ describe('parseWorkspacePathReferences', () => {
     expect(refs).toHaveLength(1);
     expect(refs[0]).toMatchObject({
       path: 'src/file.ts',
-      line: 12,
+      selector: { kind: 'line', line: 12 },
       raw: '@/src/file.ts:12'
     });
   });

@@ -24,6 +24,8 @@ Text outside comments is ignored.
 
 1. `@/path/to/file.ext`
 2. `@/path/to/file.ext:57` (line is 1-based)
+3. `@/path/to/file.json#/a/b/0` (JSON Pointer, RFC 6901 fragment)
+4. `@/path/to/file.json#jsonpath=$..items[?(@.name=="X")]` (JSONPath)
 
 Examples:
 
@@ -32,6 +34,8 @@ Examples:
 /*
   Migration details: @/docs/migration.md:42
 */
+// JSON Pointer example: @/artifacts/output/TCPC/2024-12/FINAL.json#/table/29/row/14
+// JSONPath example: @/artifacts/output/TCPC/2024-12/FINAL.json#jsonpath=$..rows[?(@.borrower=="Magenta Buyer, LLC (McAfee)")]
 ```
 
 ## Settings
@@ -48,6 +52,24 @@ Examples:
 - Default: `["@/"]`
 - Prefixes recognized as workspace-relative references.
 
+### `workspacePathLinks.jsonSelector.enabled`
+
+- Type: `boolean`
+- Default: `true`
+- Enables/disables JSON selector navigation (`#/...` and `#jsonpath=...`).
+
+### `workspacePathLinks.jsonSelector.maxQuickPickItems`
+
+- Type: `number`
+- Default: `50`
+- Maximum JSONPath match count shown in selection picker.
+
+### `workspacePathLinks.jsonSelector.maxFileSizeBytes`
+
+- Type: `number`
+- Default: `5242880` (5MB)
+- Maximum JSON file size allowed for selector-based navigation.
+
 ## Resolution Rules
 
 1. Primary: current document's workspace folder.
@@ -60,6 +82,7 @@ Examples:
 - Comment-only link detection.
 - No `file://` syntax support.
 - Invalid suffixes like `:abc`, `:0`, `:-1` are ignored.
+- JSON selector navigation requires valid JSON content.
 
 ## Troubleshooting
 
@@ -79,6 +102,13 @@ Examples:
 
 - `:line` must be a positive integer (1-based).
 - Invalid suffixes are intentionally not linked.
+
+### JSON selector errors
+
+- JSON Pointer must use `#/...` format.
+- JSONPath must use `#jsonpath=<expression>`.
+- If JSONPath returns multiple matches, a quick-pick appears for target selection.
+- If file size exceeds `workspacePathLinks.jsonSelector.maxFileSizeBytes`, selector navigation is skipped with an error.
 
 ## Development
 

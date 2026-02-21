@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { getCommentRanges, isRangeInsideComment } from './commentDetector';
+import { JsonNavigationTarget } from './jsonNavigator';
 import { runOpenCommand } from './openCommand';
 import { parseWorkspacePathReferences } from './parser';
 import { resolveWorkspacePath } from './resolver';
@@ -11,10 +12,15 @@ const SUPPORTED_LANGUAGES = ['javascript', 'javascriptreact', 'typescript', 'typ
 function readConfig(): WorkspacePathLinksConfig {
   const config = vscode.workspace.getConfiguration('workspacePathLinks');
   const prefixes = config.get<string[]>('prefixes', ['@/']);
+  const maxQuickPickItems = Math.max(1, config.get<number>('jsonSelector.maxQuickPickItems', 50));
+  const maxFileSizeBytes = Math.max(1024, config.get<number>('jsonSelector.maxFileSizeBytes', 5 * 1024 * 1024));
 
   return {
     enabled: config.get<boolean>('enabled', true),
-    prefixes
+    prefixes,
+    jsonSelectorEnabled: config.get<boolean>('jsonSelector.enabled', true),
+    maxQuickPickItems,
+    maxFileSizeBytes
   };
 }
 
@@ -45,6 +51,14 @@ export function activate(context: vscode.ExtensionContext): void {
             return false;
           }
         },
+        fileSize: async (absolutePath) => {
+          const stat = await vscode.workspace.fs.stat(vscode.Uri.file(absolutePath));
+          return stat.size;
+        },
+        readFile: async (absolutePath) => {
+          const content = await vscode.workspace.fs.readFile(vscode.Uri.file(absolutePath));
+          return new TextDecoder('utf-8').decode(content);
+        },
         openFile: async (absolutePath, zeroBasedLine) => {
           const uri = vscode.Uri.file(absolutePath);
           const editor = await vscode.window.showTextDocument(uri, { preview: false });
@@ -58,7 +72,27 @@ export function activate(context: vscode.ExtensionContext): void {
         },
         showError: (message) => {
           void vscode.window.showErrorMessage(message);
-        }
+        },
+        pickJsonTarget: async (targets: JsonNavigationTarget[]) => {
+          const quickPickItems = targets.map((target) => ({
+            label: target.pointer,
+            description: `line ${target.zeroBasedLine + 1}`,
+            detail: target.preview
+          }));
+
+          const selected = await vscode.window.showQuickPick(quickPickItems, {
+            placeHolder: 'Select JSON object to open'
+          });
+
+          if (!selected) {
+            return undefined;
+          }
+
+          return targets.find((target) => target.pointer === selected.label && `line ${target.zeroBasedLine + 1}` === selected.description);
+        },
+        jsonSelectorEnabled: extensionConfig.jsonSelectorEnabled,
+        maxQuickPickItems: extensionConfig.maxQuickPickItems,
+        maxFileSizeBytes: extensionConfig.maxFileSizeBytes
       });
     })
   );
@@ -81,6 +115,13 @@ export function activate(context: vscode.ExtensionContext): void {
 
       return parsedReferences
         .filter((reference) => isRangeInsideComment(reference.start, reference.end, commentRanges))
+        .filter((reference) => {
+          if (reference.selector.kind === 'jsonPointer' || reference.selector.kind === 'jsonPath') {
+            return extensionConfig.jsonSelectorEnabled;
+          }
+
+          return true;
+        })
         .map((reference) => {
           const absolutePath = resolveWorkspacePath({
             referencePath: reference.path,
@@ -93,7 +134,7 @@ export function activate(context: vscode.ExtensionContext): void {
             range,
             toCommandUri({
               target: absolutePath,
-              line: reference.line
+              selector: reference.selector
             })
           );
         });

@@ -7,8 +7,24 @@ function isTerminator(char: string): boolean {
 }
 
 function stripTrailingPunctuation(candidate: string): string {
+  const openParenCount = (candidate.match(/\(/g) ?? []).length;
+  let closeParenCount = (candidate.match(/\)/g) ?? []).length;
   let end = candidate.length;
-  while (end > 0 && TRAILING_PUNCTUATION.has(candidate[end - 1])) {
+
+  while (end > 0) {
+    const char = candidate[end - 1];
+    if (!TRAILING_PUNCTUATION.has(char)) {
+      break;
+    }
+
+    if (char === ')') {
+      if (closeParenCount <= openParenCount) {
+        break;
+      }
+
+      closeParenCount -= 1;
+    }
+
     end -= 1;
   }
 
@@ -24,15 +40,64 @@ function normalizePrefixes(prefixes: string[]): string[] {
   return [...new Set(cleaned)].sort((a, b) => b.length - a.length);
 }
 
-function parseReferenceToken(token: string, prefix: string): { path: string; line?: number } | undefined {
+function tryDecode(value: string): string | undefined {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return undefined;
+  }
+}
+
+function parseReferenceToken(token: string, prefix: string): Omit<ParsedReference, 'raw' | 'prefix' | 'start' | 'end'> | undefined {
   const rest = token.slice(prefix.length);
   if (!rest) {
     return undefined;
   }
 
+  const hashIndex = rest.indexOf('#');
+  if (hashIndex !== -1) {
+    const pathPart = rest.slice(0, hashIndex);
+    const fragment = rest.slice(hashIndex + 1);
+    if (!pathPart || !fragment) {
+      return undefined;
+    }
+
+    if (fragment.startsWith('/')) {
+      const pointer = tryDecode(fragment);
+      if (!pointer || !pointer.startsWith('/')) {
+        return undefined;
+      }
+
+      return {
+        path: pathPart,
+        selector: {
+          kind: 'jsonPointer',
+          pointer
+        }
+      };
+    }
+
+    if (fragment.startsWith('jsonpath=')) {
+      const expression = tryDecode(fragment.slice('jsonpath='.length));
+      if (!expression || expression.trim().length === 0) {
+        return undefined;
+      }
+
+      return {
+        path: pathPart,
+        selector: {
+          kind: 'jsonPath',
+          expression
+        }
+      };
+    }
+
+    return undefined;
+  }
+
   const lastColon = rest.lastIndexOf(':');
   if (lastColon === -1) {
-    return { path: rest };
+    return { path: rest, selector: { kind: 'none' } };
   }
 
   const pathPart = rest.slice(0, lastColon);
@@ -47,7 +112,13 @@ function parseReferenceToken(token: string, prefix: string): { path: string; lin
     return undefined;
   }
 
-  return { path: pathPart, line };
+  return {
+    path: pathPart,
+    selector: {
+      kind: 'line',
+      line
+    }
+  };
 }
 
 export function parseWorkspacePathReferences(text: string, prefixes: string[]): ParsedReference[] {
@@ -81,7 +152,7 @@ export function parseWorkspacePathReferences(text: string, prefixes: string[]): 
           raw: strippedToken,
           prefix,
           path: parsed.path,
-          line: parsed.line,
+          selector: parsed.selector,
           start: index,
           end: index + strippedToken.length
         });
