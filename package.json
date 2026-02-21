@@ -1,0 +1,67 @@
+{
+  "name": "workspace-path-links",
+  "displayName": "Workspace Path Links",
+  "description": "Clickable workspace-relative file references in JS/TS comments.",
+  "version": "0.0.1",
+  "publisher": "local",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:javascript",
+    "onLanguage:javascriptreact",
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact",
+    "onCommand:workspacePathLinks.open"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "workspacePathLinks.open",
+        "title": "Workspace Path Links: Open Reference"
+      }
+    ],
+    "configuration": {
+      "title": "Workspace Path Links",
+      "properties": {
+        "workspacePathLinks.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable clickable workspace path links in JS/TS comments."
+        },
+        "workspacePathLinks.prefixes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "@/"
+          ],
+          "description": "Path prefixes that should be treated as workspace-relative links."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "npm run compile && npm run test:unit",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
+    "package": "vsce package"
+  },
+  "dependencies": {
+    "typescript": "^5.9.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "@types/vscode": "^1.90.0",
+    "@vscode/test-electron": "^2.5.2",
+    "vitest": "^3.2.4"
+  }
+}
